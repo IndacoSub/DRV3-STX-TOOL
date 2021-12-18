@@ -44,6 +44,7 @@ namespace CLI
                             @"       Extract text",
                             @"       Repack  text",
                             @"       Option: Use TXT instead of PO: No Selection (False)",
+                            @"       Option: Swap English and Japanese: No Selection (False)",
                             @"       Exit",
                             @"  +----------------------------------------+",
                             @""
@@ -227,6 +228,12 @@ namespace CLI
             {
                 DRV3.Main.UseTxtInsteadOfPo = !DRV3.Main.UseTxtInsteadOfPo;
                 mainMenu[3] = "       Option: Use TXT instead of PO: " + DRV3.Main.UseTxtInsteadOfPo;
+                shouldReloadAfter = true;
+            }
+            else if(currentSelection == 4)
+            {
+                DRV3.Main.SwapENGAndJAP = !DRV3.Main.SwapENGAndJAP;
+                mainMenu[4] = "       Option: Swap English and Japanese: " + DRV3.Main.SwapENGAndJAP;
                 shouldReloadAfter = true;
             }
             else if (currentSelection == mainMenu.Length - 3)

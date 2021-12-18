@@ -7,6 +7,7 @@ namespace DRV3
     public static class Main
     {
         public static bool UseTxtInsteadOfPo = false;
+        public static bool SwapENGAndJAP = true;
 
         public static void ExtractTextFromSTXfiles(string STXFolder, string WRDFolder)
         {

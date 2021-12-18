@@ -26,6 +26,17 @@ namespace DRV3
             if (File.Exists(JAPFile))
             {
                 (sentencesJAP, numJAP) = ReadSentencesFromSTX(JAPFile);
+                if(DRV3.Main.SwapENGAndJAP)
+                {
+                    var numBAK = numENG;
+                    var sentencesBAK = sentencesENG;
+
+                    sentencesENG = sentencesJAP;
+                    numENG = numJAP;
+
+                    numJAP = numBAK;
+                    sentencesJAP = sentencesBAK;
+                }
             }
 
             string WRDFilePosition = Path.Combine(WRDFolder, filename + ".wrd");

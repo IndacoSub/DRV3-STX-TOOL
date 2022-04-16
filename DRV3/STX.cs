@@ -1,4 +1,5 @@
 ﻿// Credits to https://github.com/jpmac26 for explain me how DRV3's files work.
+using System;
 using System.IO;
 using System.Linq;
 using Yarhl.FileFormat;
@@ -114,6 +115,89 @@ namespace DRV3
             }
         }
 
+        public string ExpressionByLineNumber(int linenum, string character)
+        {
+            if (this.WRDFile == null || character == null || character.Length <= 0)
+            {
+                return "";
+            }
+
+            string expr = "";
+            if (WRDFile.charaExpressions[character] == null)
+            {
+                return "";
+            }
+            var charaexpressions = WRDFile.charaExpressions[character];
+            if (charaexpressions == null)
+            {
+                Console.WriteLine("No animations found for " + character + "!");
+                return "";
+            }
+
+            if (charaexpressions.InitialAnimation == null ||
+                string.IsNullOrWhiteSpace(charaexpressions.InitialAnimation) ||
+                charaexpressions.InitialAnimation == "C999_ABCDE")
+            {
+                if (character != "chara_Blank" && character != "chara_Hatena" && character != "non")
+                {
+                    Console.WriteLine("Invalid initial animation for " + character + "!");
+                }
+                return "";
+            }
+
+            if (charaexpressions.Expressions.Count <= 0)
+            {
+                return charaexpressions.InitialAnimation;
+            }
+
+            // Never-seen this character? -> Use default animation
+            var first_anim = charaexpressions.Expressions.First();
+            uint firstkey = first_anim.Key;
+            if (linenum < firstkey)
+            {
+                return charaexpressions.InitialAnimation;
+            }
+
+            for (int j = 0; j < charaexpressions.Expressions.Count; j++)
+            {
+                var keys = charaexpressions.Expressions.Keys;
+                uint lastkey = 0;
+                foreach (var key in keys)
+                {
+                    if (linenum < key)
+                    {
+                        break;
+                    }
+                    lastkey = key;
+                }
+
+                if (!charaexpressions.Expressions.TryGetValue(lastkey, out string temp))
+                {
+                    return expr;
+                }
+                expr = temp;
+            }
+
+            return expr;
+        }
+
+        public string VoicelineByLineNumber(int linenum)
+        {
+            if (this.WRDFile == null)
+            {
+                return "";
+            }
+
+            string line = "";
+
+            if (!WRDFile.voiceLines.TryGetValue((uint)linenum, out line))
+            {
+                return "";
+            }
+
+            return line;
+        }
+
         public void ConvertToPo(string DestinationDir)
         {
             //Read the language used by the user' OS, this way the editor can spellcheck the translation.
@@ -132,13 +216,28 @@ namespace DRV3
                 // Print the "Speaker".
                 if (WRDFile != null && WRDFile.charaNames.Any())
                 {
+                    string chara = "";
                     if (i < WRDFile.charaNames.Count && WRDFile.charaNames.ContainsKey((uint)i))
                     {
-                        entry.Context += $" | {WRDFile.charaNames[(uint)i]}";
+                        chara = WRDFile.charaNames[(uint)i];
+                        entry.Context += $" | {chara}";
                     }
                     else
                     {
                         entry.Context += $" | {"ERROR"}";
+                    }
+
+                    string anim = ExpressionByLineNumber(i, chara);
+
+                    if(!string.IsNullOrWhiteSpace(anim))
+                    {
+                        entry.Context += $" | {anim}";
+                    }
+
+                    string voice = VoicelineByLineNumber(i);
+                    if(!string.IsNullOrWhiteSpace(voice))
+                    {
+                        entry.Context += $" | {voice}";
                     }
                 }
 

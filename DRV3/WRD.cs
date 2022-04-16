@@ -8,15 +8,26 @@ namespace DRV3
 {
     public class WRD
     {
+        public class WRDAnimation
+        {
+            public string InitialAnimation = "";
+            public Dictionary<uint, string> Expressions = new Dictionary<uint, string>();
+        }
         public Dictionary<uint, string> charaNames = new Dictionary<uint, string>();
+        public Dictionary<string, WRDAnimation> charaExpressions = new Dictionary<string, WRDAnimation>();
+        public Dictionary<uint, string> voiceLines = new Dictionary<uint, string>();
 
         public WRD(string fileWRD)
         {
-            charaNames = ReadSpeakersFromWRD(fileWRD);
+            (charaNames, charaExpressions, voiceLines) = ReadSpeakersFromWRD(fileWRD);
         }
 
-        private Dictionary<uint, string> ReadSpeakersFromWRD(string fileWRD)
+        private (Dictionary<uint, string>, Dictionary<string, WRDAnimation>, Dictionary<uint, string>) ReadSpeakersFromWRD(string fileWRD)
         {
+            charaNames = new Dictionary<uint, string>();
+            charaExpressions = new Dictionary<string, WRDAnimation>();
+            voiceLines = new Dictionary<uint, string>();
+
             using (FileStream fs = new FileStream(fileWRD, FileMode.Open, FileAccess.Read))
             using (BinaryReader br = new BinaryReader(fs))
             {
@@ -38,12 +49,14 @@ namespace DRV3
                 // Read Params
                 fs.Seek(params_ptr, SeekOrigin.Begin);
 
+                //Console.WriteLine(param_count + " parameters:");
                 for (int i = 0; i < param_count; i++)
                 {
                     byte[] sentence = new byte[br.ReadByte()];
                     fs.Read(sentence, 0, sentence.Length);
 
                     paramsList[i] = Encoding.Default.GetString(sentence);
+                    //Console.WriteLine("\t" + i.ToString() + ": " + paramsList[i]);
 
                     br.ReadByte(); // = 0x0
                 }
@@ -51,7 +64,11 @@ namespace DRV3
                 // Read OP Codes
                 fs.Seek(0x20, SeekOrigin.Begin);
 
+                byte[] last_loc = new byte[2];
                 uint speakerCode = 0;
+                uint anim = 0;
+                uint voiceline = uint.MaxValue;
+                byte lastByte = 0;
 
                 while ((fs.Position != fs.Length) && (fs.Position < label_offsets_ptr))
                 {
@@ -100,7 +117,12 @@ namespace DRV3
                         case 0x0D:  // RET  -   break? There's another command later which is definitely break, though...
                             break;
                         case 0x0E:  // KNM  -   Kinematics (camera movement)
-                            br.ReadUInt64();
+                            br.ReadUInt16();
+                            br.ReadUInt16();
+                            br.ReadUInt16();
+                            byte[] animation = BitConverter.GetBytes(br.ReadUInt16());
+                            Array.Reverse(animation);
+                            anim = BitConverter.ToUInt16(animation, 0);
                             br.ReadUInt16();
                             break;
                         case 0x0F:  // CAP  -   Camera Parameters?
@@ -130,7 +152,10 @@ namespace DRV3
                             br.ReadUInt32();
                             break;
                         case 0x19:  // VOI  -   Play voice clip
-                            br.ReadUInt32();
+                            byte[] line = BitConverter.GetBytes(br.ReadUInt16());
+                            br.ReadUInt16(); // Volume, unneeded
+                            Array.Reverse(line);
+                            voiceline = BitConverter.ToUInt16(line, 0);
                             break;
                         case 0x1A:  // BGM  -   Play BGM
                             br.ReadUInt32();
@@ -161,6 +186,30 @@ namespace DRV3
                             byte[] temp3 = BitConverter.GetBytes(br.ReadInt16());
                             Array.Reverse(temp3);
                             speakerCode = BitConverter.ToUInt16(temp3, 0);
+                            //InputManager.Print(fs.Position.ToString() + ", found: " + speakerCode.ToString() + " (" + temp3.ToString() + ")");
+                            byte[] initial_animation = BitConverter.GetBytes(br.ReadInt16());
+                            Array.Reverse(initial_animation);
+                            anim = BitConverter.ToUInt16(initial_animation, 0);
+                            WRDAnimation wrdanim = new WRDAnimation();
+                            wrdanim.InitialAnimation = paramsList[anim];
+                            if (!charaExpressions.ContainsKey(paramsList[speakerCode]))
+                            {
+                                charaExpressions.Add(paramsList[speakerCode], wrdanim);
+                            }
+                            else
+                            {
+                                // ???
+                                if (charaExpressions[paramsList[speakerCode]].Expressions == null)
+                                {
+                                    charaExpressions[paramsList[speakerCode]].Expressions = new Dictionary<uint, string>();
+                                }
+
+                                if (!charaExpressions[paramsList[speakerCode]].Expressions.ContainsKey(BitConverter.ToUInt16(last_loc, 0)))
+                                {
+                                    charaExpressions[paramsList[speakerCode]].Expressions.Add(BitConverter.ToUInt16(last_loc, 0), paramsList[anim]);
+                                }
+                            }
+                            //InputManager.Print(anim.ToString());
                             break;
                         case 0x23:  // BGD  -   Background Parameters
                             br.ReadUInt64();
@@ -276,6 +325,32 @@ namespace DRV3
                             byte[] temp2 = BitConverter.GetBytes(br.ReadInt16());
                             Array.Reverse(temp2);
                             charaNames.Add(BitConverter.ToUInt16(temp2, 0), paramsList[speakerCode]);
+                            last_loc = temp2;
+                            if (!charaExpressions.ContainsKey(paramsList[speakerCode]))
+                            {
+                                WRDAnimation wrdanim2 = new WRDAnimation();
+                                charaExpressions.Add(paramsList[speakerCode], wrdanim2);
+                            }
+                            else
+                            {
+                                // ???
+                                if (charaExpressions[paramsList[speakerCode]].Expressions == null)
+                                {
+                                    charaExpressions[paramsList[speakerCode]].Expressions = new Dictionary<uint, string>();
+                                }
+
+                                if (!charaExpressions[paramsList[speakerCode]].Expressions.ContainsKey(BitConverter.ToUInt16(temp2, 0)))
+                                {
+                                    charaExpressions[paramsList[speakerCode]].Expressions.Add(BitConverter.ToUInt16(temp2, 0), paramsList[anim]);
+                                }
+                            }
+
+                            if (voiceline != uint.MaxValue)
+                            {
+                                //Console.WriteLine("Voiceline found at position: " + voiceline + ", is: " + paramsList[voiceline]);
+                                voiceLines.Add(BitConverter.ToUInt16(temp2, 0), paramsList[voiceline]);
+                                voiceline = uint.MaxValue;
+                            }
                             break;
                         case 0x47:  // BTN  -   Wait for button press
                         case 0x48:  // ENT  -   ???
@@ -297,10 +372,12 @@ namespace DRV3
 
                     //    br.ReadInt16();
                     //    break;
+
+                    lastByte = tempVar;
                 }
             }
 
-            return charaNames;
+            return (charaNames, charaExpressions, voiceLines);
         }
     }
 }

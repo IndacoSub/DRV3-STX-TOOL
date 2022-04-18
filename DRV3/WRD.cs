@@ -70,6 +70,8 @@ namespace DRV3
                 uint voiceline = uint.MaxValue;
                 byte lastByte = 0;
 
+                Dictionary<uint, uint> temp_animations = new Dictionary<uint, uint>();
+
                 while ((fs.Position != fs.Length) && (fs.Position < label_offsets_ptr))
                 {
                     if (br.ReadByte() != 0x70)
@@ -119,10 +121,21 @@ namespace DRV3
                         case 0x0E:  // KNM  -   Kinematics (camera movement)
                             br.ReadUInt16();
                             br.ReadUInt16();
-                            br.ReadUInt16();
+
+                            byte[] chr = BitConverter.GetBytes(br.ReadUInt16());
+                            Array.Reverse(chr);
+                            uint knmchr = BitConverter.ToUInt16(chr, 0);
+
                             byte[] animation = BitConverter.GetBytes(br.ReadUInt16());
                             Array.Reverse(animation);
                             anim = BitConverter.ToUInt16(animation, 0);
+
+                            if (temp_animations.ContainsKey(knmchr))
+                            {
+                                temp_animations.Remove(knmchr);
+                            }
+                            temp_animations.Add(knmchr, anim);
+
                             br.ReadUInt16();
                             break;
                         case 0x0F:  // CAP  -   Camera Parameters?
@@ -190,25 +203,13 @@ namespace DRV3
                             byte[] initial_animation = BitConverter.GetBytes(br.ReadInt16());
                             Array.Reverse(initial_animation);
                             anim = BitConverter.ToUInt16(initial_animation, 0);
-                            WRDAnimation wrdanim = new WRDAnimation();
-                            wrdanim.InitialAnimation = paramsList[anim];
-                            if (!charaExpressions.ContainsKey(paramsList[speakerCode]))
-                            {
-                                charaExpressions.Add(paramsList[speakerCode], wrdanim);
-                            }
-                            else
-                            {
-                                // ???
-                                if (charaExpressions[paramsList[speakerCode]].Expressions == null)
-                                {
-                                    charaExpressions[paramsList[speakerCode]].Expressions = new Dictionary<uint, string>();
-                                }
 
-                                if (!charaExpressions[paramsList[speakerCode]].Expressions.ContainsKey(BitConverter.ToUInt16(last_loc, 0)))
-                                {
-                                    charaExpressions[paramsList[speakerCode]].Expressions.Add(BitConverter.ToUInt16(last_loc, 0), paramsList[anim]);
-                                }
+                            if (temp_animations.ContainsKey(speakerCode))
+                            {
+                                temp_animations.Remove(speakerCode);
                             }
+                            temp_animations.Add(speakerCode, anim);
+
                             //InputManager.Print(anim.ToString());
                             break;
                         case 0x23:  // BGD  -   Background Parameters
@@ -326,30 +327,37 @@ namespace DRV3
                             Array.Reverse(temp2);
                             charaNames.Add(BitConverter.ToUInt16(temp2, 0), paramsList[speakerCode]);
                             last_loc = temp2;
-                            if (!charaExpressions.ContainsKey(paramsList[speakerCode]))
-                            {
-                                WRDAnimation wrdanim2 = new WRDAnimation();
-                                charaExpressions.Add(paramsList[speakerCode], wrdanim2);
-                            }
-                            else
-                            {
-                                // ???
-                                if (charaExpressions[paramsList[speakerCode]].Expressions == null)
-                                {
-                                    charaExpressions[paramsList[speakerCode]].Expressions = new Dictionary<uint, string>();
-                                }
-
-                                if (!charaExpressions[paramsList[speakerCode]].Expressions.ContainsKey(BitConverter.ToUInt16(temp2, 0)))
-                                {
-                                    charaExpressions[paramsList[speakerCode]].Expressions.Add(BitConverter.ToUInt16(temp2, 0), paramsList[anim]);
-                                }
-                            }
 
                             if (voiceline != uint.MaxValue)
                             {
                                 //Console.WriteLine("Voiceline found at position: " + voiceline + ", is: " + paramsList[voiceline]);
                                 voiceLines.Add(BitConverter.ToUInt16(temp2, 0), paramsList[voiceline]);
                                 voiceline = uint.MaxValue;
+                            }
+
+                            foreach (var key in temp_animations)
+                            {
+                                WRDAnimation wrdanim = new WRDAnimation();
+                                wrdanim.InitialAnimation = paramsList[key.Value];
+                                if (!charaExpressions.ContainsKey(paramsList[key.Key]))
+                                {
+                                    charaExpressions.Add(paramsList[key.Key], wrdanim);
+                                }
+                                else
+                                {
+                                    // ???
+                                    if (charaExpressions[paramsList[key.Key]].Expressions == null)
+                                    {
+                                        charaExpressions[paramsList[key.Key]].Expressions = new Dictionary<uint, string>();
+                                    }
+
+                                    if (charaExpressions[paramsList[key.Key]].Expressions.ContainsKey(BitConverter.ToUInt16(last_loc, 0)))
+                                    {
+                                        charaExpressions[paramsList[key.Key]].Expressions.Remove(BitConverter.ToUInt16(last_loc, 0));
+                                    }
+
+                                    charaExpressions[paramsList[key.Key]].Expressions.Add(BitConverter.ToUInt16(last_loc, 0), paramsList[key.Value]);
+                                }
                             }
                             break;
                         case 0x47:  // BTN  -   Wait for button press

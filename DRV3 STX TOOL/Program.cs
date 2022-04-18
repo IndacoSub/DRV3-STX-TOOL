@@ -7,6 +7,7 @@ namespace CLI
     {
         private static void Main()
         {
+            /*
             DRV3.Main.UseTxtInsteadOfPo = true;
             ConfigFile.AppConfig configF = new ConfigFile.AppConfig("App.config");
             string outFormatFolder = "EXTRACTED_FILES";
@@ -33,8 +34,8 @@ namespace CLI
                     InputOutput.ShowMessages.EventMessage("Done!");
                 }
             }
+            */
 
-            /*
             Console.CursorVisible = true;
             Console.ResetColor();
 
@@ -47,7 +48,6 @@ namespace CLI
                 ConsoleKey keyPressedByUser = ReadInput.WaitForArrowKeys();
                 consoleInterface.PrintFullInterface(keyPressedByUser);
             }
-            */
         }
     }
 }

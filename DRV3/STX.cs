@@ -122,6 +122,16 @@ namespace DRV3
                 return "";
             }
 
+            if (character == "chara_Hatena" || character == "chara_Blank")
+            {
+                return "";
+            }
+
+            if(!WRDFile.charaExpressions.ContainsKey(character))
+            {
+                return "";
+            }
+
             string expr = "";
             if (WRDFile.charaExpressions[character] == null)
             {

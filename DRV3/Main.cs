@@ -14,7 +14,7 @@ namespace DRV3
             string outFolder = "EXTRACTED_FILES";
 
             // Iterate all the .stx files in the STXFolder directory (without searching in the subdirectories)
-            foreach (string STXfile in (Directory.GetFiles(STXFolder, "*.stx", SearchOption.TopDirectoryOnly)))
+            foreach (string STXfile in Directory.GetFiles(STXFolder, "*.stx", SearchOption.TopDirectoryOnly))
             {
                 if (MagicID.Check(STXfile, MagicID.STX))
                 {
@@ -38,8 +38,11 @@ namespace DRV3
             if (Directory.Exists(RepackFolder))
             {
                 Directory.Delete(RepackFolder, true);
-                while (Directory.Exists(RepackFolder)) { }
+                while (Directory.Exists(RepackFolder))
+                {
+                }
             }
+
             Directory.CreateDirectory(RepackFolder);
 
             // Iterate all the files in the STXFolder directory (without searching in the subdirectories)
@@ -69,4 +72,3 @@ namespace DRV3
         }
     }
 }
-

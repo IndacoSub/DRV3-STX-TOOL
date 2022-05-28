@@ -32,8 +32,5 @@ namespace CLI.InputOutput
                 Console.WriteLine($"{Message}");
             }
         }
-
-
-
     }
 }

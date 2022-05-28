@@ -1,6 +1,6 @@
-﻿using CLI.InputOutput;
-using System;
+﻿using System;
 using System.IO;
+using CLI.InputOutput;
 
 namespace CLI
 {
@@ -18,7 +18,8 @@ namespace CLI
 
             do
             {
-                ShowMessages.EventMessage($"Drop or write the absolute path for the {fileType}'s folder.\nE.g. \"C:\\MyGames\\DRV3\\STX_FOLDER\" without inverted commas.");
+                ShowMessages.EventMessage(
+                    $"Drop or write the absolute path for the {fileType}'s folder.\nE.g. \"C:\\MyGames\\DRV3\\STX_FOLDER\" without inverted commas.");
                 folderPath = Console.ReadLine().Replace("\"", null);
 
                 if (!Directory.Exists(folderPath))
@@ -29,8 +30,7 @@ namespace CLI
                 {
                     ShowMessages.EventMessage("Folder found!\n");
                 }
-            }
-            while (!Directory.Exists(folderPath));
+            } while (!Directory.Exists(folderPath));
 
             Console.CursorVisible = false;
 

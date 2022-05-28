@@ -1,13 +1,15 @@
-﻿using CLI.InputOutput;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Xml.Linq;
+using CLI.InputOutput;
 
 namespace CLI.ConfigFile
 {
     public class AppConfig
     {
+        private readonly XDocument configFile;
+
         public AppConfig(string fileName)
         {
             if (File.Exists(fileName))
@@ -23,10 +25,8 @@ namespace CLI.ConfigFile
             WRD_Folder = ReadValueFromConfigFile(in configFile, "WRD");
         }
 
-        public string STX_Folder { get; private set; }
-        public string WRD_Folder { get; private set; }
-
-        private readonly XDocument configFile;
+        public string STX_Folder { get; }
+        public string WRD_Folder { get; }
 
         /// <summary>
         /// Inizialize "App.config" and ask to the user the folders' path for the STX and WRD files.
@@ -35,15 +35,15 @@ namespace CLI.ConfigFile
         private XDocument CreateAppConfig(string fileName)
         {
             XDocument xDoc = new XDocument(
-                                       new XDeclaration("1.0", "utf-8", null),
-                                       new XElement("configuration",
-                                           new XElement("appSettings",
-                                               new XElement("add",
-                                               new XAttribute("key", "STX"),
-                                               new XAttribute("value", ReadInput.WaitForPath("STX"))),
-                                               new XElement("add",
-                                               new XAttribute("key", "WRD"),
-                                               new XAttribute("value", ReadInput.WaitForPath("WRD"))))));
+                new XDeclaration("1.0", "utf-8", null),
+                new XElement("configuration",
+                    new XElement("appSettings",
+                        new XElement("add",
+                            new XAttribute("key", "STX"),
+                            new XAttribute("value", ReadInput.WaitForPath("STX"))),
+                        new XElement("add",
+                            new XAttribute("key", "WRD"),
+                            new XAttribute("value", ReadInput.WaitForPath("WRD"))))));
             xDoc.Save(fileName);
 
             if (File.Exists(fileName))
@@ -105,8 +105,8 @@ namespace CLI.ConfigFile
             if (path_folder == "" || !Directory.Exists(path_folder))
             {
                 XAttribute target = xDoc.Descendants("add")
-                                        .Where(e => e.Attribute("key").Value == keyElementName)
-                                        .Single().Attribute("value");
+                    .Where(e => e.Attribute("key").Value == keyElementName)
+                    .Single().Attribute("value");
 
                 target.Value = ReadInput.WaitForPath(keyElementName);
 
@@ -125,8 +125,8 @@ namespace CLI.ConfigFile
         private string ReadValueFromConfigFile(in XDocument xDoc, string keyElementName)
         {
             return xDoc.Descendants("add")
-                       .Where(e => e.Attribute("key").Value == keyElementName)
-                       .Single().Attribute("value").Value;
+                .Where(e => e.Attribute("key").Value == keyElementName)
+                .Single().Attribute("value").Value;
         }
     }
 }

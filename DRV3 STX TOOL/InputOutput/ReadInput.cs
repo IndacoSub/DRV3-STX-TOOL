@@ -43,14 +43,20 @@ namespace CLI
         /// <returns>Returns the pressed key.</returns>
         public static ConsoleKey WaitForArrowKeys()
         {
-            ConsoleKey k = Console.ReadKey(true).Key;
-
-            while (k != ConsoleKey.UpArrow && k != ConsoleKey.DownArrow && k != ConsoleKey.Enter)
+            if (!Program.BatchCompile)
             {
-                k = Console.ReadKey(true).Key;
-            }
+                ConsoleKey k = Console.ReadKey(true).Key;
 
-            return k;
+                while (k != ConsoleKey.UpArrow && k != ConsoleKey.DownArrow && k != ConsoleKey.Enter)
+                {
+                    k = Console.ReadKey(true).Key;
+                }
+
+                return k;
+            } else
+            {
+                return ConsoleKey.Enter;
+            }
         }
     }
 }

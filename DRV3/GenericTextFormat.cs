@@ -27,6 +27,13 @@ namespace DRV3
             {
                 byte[] header;
 
+                /*
+                for(int i = 0; i < sentences.Count; i++)
+                {
+                    sentences[i] = sentences[i].ReplaceLineEndings();
+                }
+                */
+
                 // Read and save the header from the original STX file.
                 using (FileStream oF = new FileStream(originalSTX, FileMode.Open, FileAccess.Read))
                 using (BinaryReader STXBBR = new BinaryReader(oF))

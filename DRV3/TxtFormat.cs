@@ -38,7 +38,7 @@ namespace DRV3
 
             foreach (string line in File.ReadAllLines(TxtAddress))
             {
-                redSentences.Add(line);
+                redSentences.Add(line.Trim().Normalize());
             }
 
             if (redSentences.Count == 0)

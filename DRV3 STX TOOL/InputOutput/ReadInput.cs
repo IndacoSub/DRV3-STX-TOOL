@@ -43,7 +43,7 @@ namespace CLI
         /// <returns>Returns the pressed key.</returns>
         public static ConsoleKey WaitForArrowKeys()
         {
-            if (!Program.BatchCompile)
+            if (!DRV3.Main.BatchCompile)
             {
                 ConsoleKey k = Console.ReadKey(true).Key;
 

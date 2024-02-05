@@ -478,7 +478,10 @@ namespace DRV3
 							br.ReadInt16();
 							break;
 						default:
-							Console.WriteLine("Unrecognized command: " + tempVar);
+							if (DRV3.Main.ViewWRD)
+							{
+								Console.WriteLine("Unrecognized command: " + tempVar);
+							}
 							break;
 					}
 

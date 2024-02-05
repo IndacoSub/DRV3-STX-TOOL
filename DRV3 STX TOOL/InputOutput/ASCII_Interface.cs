@@ -31,8 +31,8 @@ namespace CLI
         {
             @"  +----------------------------------------+",
             @"  |        Danganronpa V3: STX TOOL        |",
-            @"  |       Version 1.00 (15 MAY 2019)       |",
-            @"  |              by Liquid S!              |",
+            @"  |    Version 1.01 (05 FEBRUARY 2024)     |",
+            @"  |        by Liquid S and IndacoSub!      |",
             @"  +----------------------------------------+",
             @""
         };

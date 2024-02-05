@@ -8,21 +8,27 @@ namespace DRV3
 	{
 		// Settings
 		public static bool UseTxtInsteadOfPo = false;
-		public static bool SwapENGAndJAP = true;
-		public static bool ViewWRD = true;
+		public static bool SwapENGAndJAP = false;
+		public static bool ViewWRD = false;
 		public static bool BatchCompile = false;
+		public static bool WarnAboutMissingJapFile = true;
 
 		// Functions
 		public static void ExtractTextFromSTXfiles(string STXFolder, string WRDFolder)
 		{
-			string outFolder = "EXTRACTED_FILES";
+			const string outFolder = "EXTRACTED_FILES";
 
 			// Iterate all the .stx files in the STXFolder directory (without searching in the subdirectories)
+			// TODO: Why not search in the subdirectories as well?
 			foreach (string STXfile in Directory.GetFiles(STXFolder, "*.stx", SearchOption.TopDirectoryOnly))
 			{
 				if (MagicID.Check(STXfile, MagicID.STX))
 				{
 					STX STXobject = new STX(STXfile, WRDFolder);
+					if(STXobject == null)
+					{
+						continue;
+					}
 					if (UseTxtInsteadOfPo)
 					{
 						STXobject.ConvertToTxt(outFolder);
@@ -37,7 +43,7 @@ namespace DRV3
 
 		public static uint RepackText(string outFileFolder, string STX_Folder)
 		{
-			string RepackFolder = "REPACKED_FILES";
+			const string RepackFolder = "REPACKED_FILES";
 
 			if (Directory.Exists(RepackFolder))
 			{

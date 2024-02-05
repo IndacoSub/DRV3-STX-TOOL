@@ -1,6 +1,7 @@
 ﻿// Credits to https://github.com/jpmac26 for explain me how DRV3's files work.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -32,8 +33,8 @@ namespace DRV3
                 (sentencesJAP, numJAP) = ReadSentencesFromSTX(JAPFile);
                 if (Main.SwapENGAndJAP)
                 {
-                    var numBAK = numENG;
-                    var sentencesBAK = sentencesENG;
+                    var numBAK = new List<uint>(numENG).ToArray();
+                    var sentencesBAK = new List<string>(sentencesENG).ToArray();
 
                     sentencesENG = sentencesJAP;
                     numENG = numJAP;
@@ -41,6 +42,14 @@ namespace DRV3
                     numJAP = numBAK;
                     sentencesJAP = sentencesBAK;
                 }
+            }
+            else
+            {
+                if (DRV3.Main.WarnAboutMissingJapFile)
+                {
+					Console.WriteLine("Japanese STX not found: " + JAPFile);
+                    DRV3.Main.WarnAboutMissingJapFile = false;
+				}
             }
 
             string WRDFilePosition = Path.Combine(WRDFolder, filename + ".wrd");
@@ -98,6 +107,7 @@ namespace DRV3
 
                     // Read the string until an unsupported character is found,
                     // or the end of stream is reached
+                    // TODO: Is 0 valid?
                     while (fs.Position != fs.Length && (Letter = br.ReadUInt16()) > 0)
                     {
                         tempSentence += (char)Letter;
@@ -121,7 +131,7 @@ namespace DRV3
 
         public string ExpressionByLineNumber(int linenum, string character)
         {
-            if (WRDFile == null || character == null || character.Length <= 0)
+            if (WRDFile == null || WRDFile.charaExpressions == null || character == null || character.Length <= 0)
             {
                 return "";
             }
@@ -177,6 +187,10 @@ namespace DRV3
             for (int j = 0; j < charaexpressions.Expressions.Count; j++)
             {
                 var keys = charaexpressions.Expressions.Keys;
+                if(keys == null)
+                {
+                    continue;
+                }
                 uint lastkey = 0;
                 foreach (var key in keys)
                 {
@@ -208,7 +222,7 @@ namespace DRV3
 
             string line = "";
 
-            if (!WRDFile.voiceLines.TryGetValue((uint)linenum, out line))
+            if (WRDFile.voiceLines != null && !WRDFile.voiceLines.TryGetValue((uint)linenum, out line))
             {
                 return "";
             }
@@ -218,6 +232,11 @@ namespace DRV3
 
         public void ConvertToPo(string DestinationDir)
         {
+            if(sentencesENG == null || sentencesENG.Length == 0)
+            {
+                Console.WriteLine("No english sentences were found! Aborting conversion to PO.");
+                return;
+            }
             //Read the language used by the user' OS, this way the editor can spellcheck the translation.
             CultureInfo currentCulture = Thread.CurrentThread.CurrentCulture;
 
@@ -232,7 +251,7 @@ namespace DRV3
                 entry.Context = $"{numENG[i]:D4} | {filename}";
 
                 // Print the "Speaker".
-                if (WRDFile != null && WRDFile.charaNames.Any())
+                if (WRDFile != null && WRDFile.charaNames != null && WRDFile.charaNames.Any())
                 {
                     string chara = "";
                     if (i < WRDFile.charaNames.Count && WRDFile.charaNames.ContainsKey((uint)i))
@@ -284,7 +303,6 @@ namespace DRV3
                     // The "replaces" are a fix for a Yarhl's bug.
                     entry.ExtractedComments = sentencesJAP[i].Replace("\r\n", "\n#. ").Replace("\n\r", "\n#. ")
                         .Replace("\n", "\n#. ").Replace("\r", string.Empty);
-                    ;
                 }
 
                 po.Add(entry);
@@ -303,6 +321,12 @@ namespace DRV3
         public void ConvertToTxt(string DestinationDir)
         {
             string NewTXTAddress = Path.Combine(DestinationDir, filename + ".txt");
+
+            if(sentencesENG == null || sentencesENG.Length == 0)
+            {
+				Console.WriteLine("No english sentences were found! Aborting conversion to PO.");
+                return;
+			}
 
             for (int i = 0; i < sentencesENG.Length; i++)
             {

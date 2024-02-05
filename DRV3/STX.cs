@@ -1,6 +1,11 @@
 ﻿// Credits to https://github.com/jpmac26 for explain me how DRV3's files work.
+
+using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Yarhl.FileFormat;
 using Yarhl.Media.Text;
 
@@ -10,11 +15,11 @@ namespace DRV3
 
     public class STX
     {
-        private readonly string[] sentencesENG;
-        private readonly string[] sentencesJAP;
+        private readonly string filename;
         private readonly uint[] numENG;
         private readonly uint[] numJAP;
-        private readonly string filename;
+        private readonly string[] sentencesENG;
+        private readonly string[] sentencesJAP;
         private readonly WRD WRDFile;
 
         public STX(string fileSTX, string WRDFolder)
@@ -26,6 +31,25 @@ namespace DRV3
             if (File.Exists(JAPFile))
             {
                 (sentencesJAP, numJAP) = ReadSentencesFromSTX(JAPFile);
+                if (Main.SwapENGAndJAP)
+                {
+                    var numBAK = new List<uint>(numENG).ToArray();
+                    var sentencesBAK = new List<string>(sentencesENG).ToArray();
+
+                    sentencesENG = sentencesJAP;
+                    numENG = numJAP;
+
+                    numJAP = numBAK;
+                    sentencesJAP = sentencesBAK;
+                }
+            }
+            else
+            {
+                if (DRV3.Main.WarnAboutMissingJapFile)
+                {
+					Console.WriteLine("Japanese STX not found: " + JAPFile);
+                    DRV3.Main.WarnAboutMissingJapFile = false;
+				}
             }
 
             string WRDFilePosition = Path.Combine(WRDFolder, filename + ".wrd");
@@ -55,7 +79,8 @@ namespace DRV3
 
                 uint[] pointers = new uint[NpointersToRead]; // pointers to positions in the file
                 uint[] num = new uint[NpointersToRead]; // "number" of each pointer
-                sentences = new string[NpointersToRead]; // the number of pointers corresponds to the number of sentences
+                sentences =
+                    new string[NpointersToRead]; // the number of pointers corresponds to the number of sentences
 
                 // Skip the header
                 fs.Seek(headerSize, SeekOrigin.Begin);
@@ -82,7 +107,8 @@ namespace DRV3
 
                     // Read the string until an unsupported character is found,
                     // or the end of stream is reached
-                    while ((fs.Position != fs.Length) && (Letter = br.ReadUInt16()) > 0)
+                    // TODO: Is 0 valid?
+                    while (fs.Position != fs.Length && (Letter = br.ReadUInt16()) > 0)
                     {
                         tempSentence += (char)Letter;
                     }
@@ -103,10 +129,116 @@ namespace DRV3
             }
         }
 
+        public string ExpressionByLineNumber(int linenum, string character)
+        {
+            if (WRDFile == null || WRDFile.charaExpressions == null || character == null || character.Length <= 0)
+            {
+                return "";
+            }
+
+            if (character == "chara_Hatena" || character == "chara_Blank")
+            {
+                return "";
+            }
+
+            if (!WRDFile.charaExpressions.ContainsKey(character))
+            {
+                return "";
+            }
+
+            string expr = "";
+            if (WRDFile.charaExpressions[character] == null)
+            {
+                return "";
+            }
+
+            var charaexpressions = WRDFile.charaExpressions[character];
+            if (charaexpressions == null)
+            {
+                Console.WriteLine("No animations found for " + character + "!");
+                return "";
+            }
+
+            if (charaexpressions.InitialAnimation == null ||
+                string.IsNullOrWhiteSpace(charaexpressions.InitialAnimation) ||
+                charaexpressions.InitialAnimation == "C999_ABCDE")
+            {
+                if (character != "chara_Blank" && character != "chara_Hatena" && character != "non")
+                {
+                    Console.WriteLine("Invalid initial animation for " + character + "!");
+                }
+
+                return "";
+            }
+
+            if (charaexpressions.Expressions.Count <= 0)
+            {
+                return charaexpressions.InitialAnimation;
+            }
+
+            // Never-seen this character? -> Use default animation
+            var first_anim = charaexpressions.Expressions.First();
+            uint firstkey = first_anim.Key;
+            if (linenum < firstkey)
+            {
+                return charaexpressions.InitialAnimation;
+            }
+
+            for (int j = 0; j < charaexpressions.Expressions.Count; j++)
+            {
+                var keys = charaexpressions.Expressions.Keys;
+                if(keys == null)
+                {
+                    continue;
+                }
+                uint lastkey = 0;
+                foreach (var key in keys)
+                {
+                    if (linenum < key)
+                    {
+                        break;
+                    }
+
+                    lastkey = key;
+                }
+
+                if (!charaexpressions.Expressions.TryGetValue(lastkey, out string temp))
+                {
+                    return expr;
+                }
+
+                expr = temp;
+            }
+
+            return expr;
+        }
+
+        public string VoicelineByLineNumber(int linenum)
+        {
+            if (WRDFile == null)
+            {
+                return "";
+            }
+
+            string line = "";
+
+            if (WRDFile.voiceLines != null && !WRDFile.voiceLines.TryGetValue((uint)linenum, out line))
+            {
+                return "";
+            }
+
+            return line;
+        }
+
         public void ConvertToPo(string DestinationDir)
         {
+            if(sentencesENG == null || sentencesENG.Length == 0)
+            {
+                Console.WriteLine("No english sentences were found! Aborting conversion to PO.");
+                return;
+            }
             //Read the language used by the user' OS, this way the editor can spellcheck the translation.
-            System.Globalization.CultureInfo currentCulture = System.Threading.Thread.CurrentThread.CurrentCulture;
+            CultureInfo currentCulture = Thread.CurrentThread.CurrentCulture;
 
             Po po = new Po
             {
@@ -116,18 +248,33 @@ namespace DRV3
             for (int i = 0; i < sentencesENG.Length; i++)
             {
                 PoEntry entry = new PoEntry();
-                entry.Context = $"{this.numENG[i]:D4} | {filename}";
+                entry.Context = $"{numENG[i]:D4} | {filename}";
 
                 // Print the "Speaker".
-                if (WRDFile != null && WRDFile.charaNames.Any())
+                if (WRDFile != null && WRDFile.charaNames != null && WRDFile.charaNames.Any())
                 {
+                    string chara = "";
                     if (i < WRDFile.charaNames.Count && WRDFile.charaNames.ContainsKey((uint)i))
                     {
-                        entry.Context += $" | {WRDFile.charaNames[(uint)i]}";
+                        chara = WRDFile.charaNames[(uint)i];
+                        entry.Context += $" | {chara}";
                     }
                     else
                     {
                         entry.Context += $" | {"ERROR"}";
+                    }
+
+                    string anim = ExpressionByLineNumber(i, chara);
+
+                    if (!string.IsNullOrWhiteSpace(anim))
+                    {
+                        entry.Context += $" | {anim}";
+                    }
+
+                    string voice = VoicelineByLineNumber(i);
+                    if (!string.IsNullOrWhiteSpace(voice))
+                    {
+                        entry.Context += $" | {voice}";
                     }
                 }
 
@@ -137,8 +284,12 @@ namespace DRV3
                     entry.Original = "[EMPTY_LINE]";
                     entry.Translated = "[EMPTY_LINE]";
                 }
-                else if (sentencesENG[i].Length == 1 || sentencesENG[i] == " \n" || sentencesENG[i] == "\n" || sentencesENG[i] == "..." || sentencesENG[i] == "…" || sentencesENG[i] == "...\n" || sentencesENG[i] == "…\n" || sentencesENG[i] == "\"...\"" || sentencesENG[i] == "\"…\"" || sentencesENG[i] == "\"...\n\"" || sentencesENG[i] == "\"…\n\"")
-                { // Automatically translate those sentences that doesn't need a translation.
+                else if (sentencesENG[i].Length == 1 || sentencesENG[i] == " \n" || sentencesENG[i] == "\n" ||
+                         sentencesENG[i] == "..." || sentencesENG[i] == "…" || sentencesENG[i] == "...\n" ||
+                         sentencesENG[i] == "…\n" || sentencesENG[i] == "\"...\"" || sentencesENG[i] == "\"…\"" ||
+                         sentencesENG[i] == "\"...\n\"" || sentencesENG[i] == "\"…\n\"")
+                {
+                    // Automatically translate those sentences that doesn't need a translation.
                     entry.Original = sentencesENG[i];
                     entry.Translated = sentencesENG[i];
                 }
@@ -150,7 +301,8 @@ namespace DRV3
                 if (sentencesJAP != null && sentencesJAP.Any() && sentencesJAP.Length > i && sentencesJAP[i].Length > 0)
                 {
                     // The "replaces" are a fix for a Yarhl's bug.
-                    entry.ExtractedComments = sentencesJAP[i].Replace("\r\n", "\n#. ").Replace("\n\r", "\n#. ").Replace("\n", "\n#. ").Replace("\r", string.Empty); ;
+                    entry.ExtractedComments = sentencesJAP[i].Replace("\r\n", "\n#. ").Replace("\n\r", "\n#. ")
+                        .Replace("\n", "\n#. ").Replace("\r", string.Empty);
                 }
 
                 po.Add(entry);
@@ -168,8 +320,13 @@ namespace DRV3
 
         public void ConvertToTxt(string DestinationDir)
         {
-
             string NewTXTAddress = Path.Combine(DestinationDir, filename + ".txt");
+
+            if(sentencesENG == null || sentencesENG.Length == 0)
+            {
+				Console.WriteLine("No english sentences were found! Aborting conversion to PO.");
+                return;
+			}
 
             for (int i = 0; i < sentencesENG.Length; i++)
             {

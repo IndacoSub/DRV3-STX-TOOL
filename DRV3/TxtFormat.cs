@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace DRV3
 {
-    class TxtFormat : GenericTextFormat
+    internal class TxtFormat : GenericTextFormat
     {
         public TxtFormat(string TxtAddress, string STX_Folder)
         {
@@ -38,7 +38,7 @@ namespace DRV3
 
             foreach (string line in File.ReadAllLines(TxtAddress))
             {
-                redSentences.Add(line);
+                redSentences.Add(line.Trim().Normalize());
             }
 
             if (redSentences.Count == 0)
@@ -88,6 +88,7 @@ namespace DRV3
                     // If possible, use .po files instead
                     num.Add(Index);
                 }
+
                 ++Index;
 
                 if (entry == "[EMPTY_LINE]")
@@ -96,7 +97,8 @@ namespace DRV3
                 }
                 else if (entry.Trim() != null && entry.Trim() != "")
                 {
-                    sentence = entry.Replace("\\r\\n", "\r\n").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\r", "");
+                    sentence = entry.Replace("\\r\\n", "\r\n").Replace("\\n", "\n").Replace("\\r", "\r")
+                        .Replace("\r", "");
                 }
                 else
                 {

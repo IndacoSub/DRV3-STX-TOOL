@@ -7,18 +7,15 @@ namespace DRV3
 {
     public class GenericTextFormat
     {
+        protected List<uint> num; // Pointer number
+        protected string originalSTX = string.Empty;
+
         /// <summary>
         /// Translated sentences.
         /// </summary>
         protected List<string> sentences;
-        protected List<uint> num; // Pointer number
-        protected string originalSTX = string.Empty;
+
         protected string STXFFIleName = string.Empty;
-
-        public GenericTextFormat()
-        {
-
-        }
 
         /// <summary>
         /// Create the translated STX.
@@ -29,6 +26,13 @@ namespace DRV3
             if (originalSTX != string.Empty && File.Exists(originalSTX))
             {
                 byte[] header;
+
+                /*
+                for(int i = 0; i < sentences.Count; i++)
+                {
+                    sentences[i] = sentences[i].ReplaceLineEndings();
+                }
+                */
 
                 // Read and save the header from the original STX file.
                 using (FileStream oF = new FileStream(originalSTX, FileMode.Open, FileAccess.Read))
@@ -46,8 +50,10 @@ namespace DRV3
                 }
 
                 // Create the new STX file. 
-                using (FileStream NEWOutFile = new FileStream(Path.Combine(RepackFolder, STXFFIleName), FileMode.Create, FileAccess.Write))
-                using (BinaryWriter OutFileBW = new BinaryWriter(NEWOutFile), TextUnicode = new BinaryWriter(NEWOutFile, Encoding.Unicode))
+                using (FileStream NEWOutFile = new FileStream(Path.Combine(RepackFolder, STXFFIleName), FileMode.Create,
+                           FileAccess.Write))
+                using (BinaryWriter OutFileBW = new BinaryWriter(NEWOutFile),
+                       TextUnicode = new BinaryWriter(NEWOutFile, Encoding.Unicode))
                 {
                     OutFileBW.Write(header);
 
@@ -102,11 +108,12 @@ namespace DRV3
                             // you manually edit the files in the "EXTRACTED_FILES" folder
                             // and accidently add a line or more
                             OutFileBW.Write((uint)i);
-                            Console.WriteLine("Something is wrong about this file (wrong number of lines?): " + STXFFIleName.Replace(".stx", ".txt"));
+                            Console.WriteLine("Something is wrong about this file (wrong number of lines?): " +
+                                              STXFFIleName.Replace(".stx", ".txt"));
                         }
                         else
                         {
-                            OutFileBW.Write((uint)num[i]);
+                            OutFileBW.Write(num[i]);
                         }
 
                         OutFileBW.Write((uint)sentencesOffeset[i]);

@@ -4,68 +4,81 @@ using System.IO;
 
 namespace DRV3
 {
-    public static class Main
-    {
-        public static bool UseTxtInsteadOfPo = false;
+	public static class Main
+	{
+		// Settings
+		public static bool UseTxtInsteadOfPo = false;
+		public static bool SwapENGAndJAP = false;
+		public static bool ViewWRD = false;
+		public static bool BatchCompile = false;
+		public static bool WarnAboutMissingJapFile = true;
 
-        public static void ExtractTextFromSTXfiles(string STXFolder, string WRDFolder)
-        {
-            string outFolder = "EXTRACTED_FILES";
+		// Functions
+		public static void ExtractTextFromSTXfiles(string STXFolder, string WRDFolder)
+		{
+			const string outFolder = "EXTRACTED_FILES";
 
-            // Iterate all the .stx files in the STXFolder directory (without searching in the subdirectories)
-            foreach (string STXfile in (Directory.GetFiles(STXFolder, "*.stx", SearchOption.TopDirectoryOnly)))
-            {
-                if (MagicID.Check(STXfile, MagicID.STX))
-                {
-                    STX STXobject = new STX(STXfile, WRDFolder);
-                    if (UseTxtInsteadOfPo)
-                    {
-                        STXobject.ConvertToTxt(outFolder);
-                    }
-                    else
-                    {
-                        STXobject.ConvertToPo(outFolder);
-                    }
-                }
-            }
-        }
+			// Iterate all the .stx files in the STXFolder directory (without searching in the subdirectories)
+			// TODO: Why not search in the subdirectories as well?
+			foreach (string STXfile in Directory.GetFiles(STXFolder, "*.stx", SearchOption.TopDirectoryOnly))
+			{
+				if (MagicID.Check(STXfile, MagicID.STX))
+				{
+					STX STXobject = new STX(STXfile, WRDFolder);
+					if(STXobject == null)
+					{
+						continue;
+					}
+					if (UseTxtInsteadOfPo)
+					{
+						STXobject.ConvertToTxt(outFolder);
+					}
+					else
+					{
+						STXobject.ConvertToPo(outFolder);
+					}
+				}
+			}
+		}
 
-        public static uint RepackText(string outFileFolder, string STX_Folder)
-        {
-            string RepackFolder = "REPACKED_FILES";
+		public static uint RepackText(string outFileFolder, string STX_Folder)
+		{
+			const string RepackFolder = "REPACKED_FILES";
 
-            if (Directory.Exists(RepackFolder))
-            {
-                Directory.Delete(RepackFolder, true);
-                while (Directory.Exists(RepackFolder)) { }
-            }
-            Directory.CreateDirectory(RepackFolder);
+			if (Directory.Exists(RepackFolder))
+			{
+				Directory.Delete(RepackFolder, true);
+				while (Directory.Exists(RepackFolder))
+				{
+				}
+			}
 
-            // Iterate all the files in the STXFolder directory (without searching in the subdirectories)
+			Directory.CreateDirectory(RepackFolder);
 
-            uint found = 0;
+			// Iterate all the files in the STXFolder directory (without searching in the subdirectories)
 
-            if (UseTxtInsteadOfPo)
-            {
-                foreach (string txtFile in Directory.GetFiles(outFileFolder, "*.txt", SearchOption.TopDirectoryOnly))
-                {
-                    TxtFormat tF = new TxtFormat(txtFile, STX_Folder);
-                    tF.BuildSTX(RepackFolder);
-                    ++found;
-                }
-            }
-            else
-            {
-                foreach (string poFile in Directory.GetFiles(outFileFolder, "*.po", SearchOption.TopDirectoryOnly))
-                {
-                    PoFormat pF = new PoFormat(poFile, STX_Folder);
-                    pF.BuildSTX(RepackFolder);
-                    ++found;
-                }
-            }
+			uint found = 0;
 
-            return found;
-        }
-    }
+			if (UseTxtInsteadOfPo)
+			{
+				foreach (string txtFile in Directory.GetFiles(outFileFolder, "*.txt", SearchOption.TopDirectoryOnly))
+				{
+					TxtFormat tF = new TxtFormat(txtFile, STX_Folder);
+					tF.BuildSTX(RepackFolder);
+					++found;
+				}
+			}
+			else
+			{
+				foreach (string poFile in Directory.GetFiles(outFileFolder, "*.po", SearchOption.TopDirectoryOnly))
+				{
+					PoFormat pF = new PoFormat(poFile, STX_Folder);
+					pF.BuildSTX(RepackFolder);
+					++found;
+				}
+			}
+
+			return found;
+		}
+	}
 }
-

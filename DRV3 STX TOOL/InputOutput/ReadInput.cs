@@ -1,6 +1,6 @@
-﻿using CLI.InputOutput;
-using System;
+﻿using System;
 using System.IO;
+using CLI.InputOutput;
 
 namespace CLI
 {
@@ -18,7 +18,8 @@ namespace CLI
 
             do
             {
-                ShowMessages.EventMessage($"Drop or write the absolute path for the {fileType}'s folder.\nE.g. \"C:\\MyGames\\DRV3\\STX_FOLDER\" without inverted commas.");
+                ShowMessages.EventMessage(
+                    $"Drop or write the absolute path for the {fileType}'s folder.\nE.g. \"C:\\MyGames\\DRV3\\STX_FOLDER\" without inverted commas.");
                 folderPath = Console.ReadLine().Replace("\"", null);
 
                 if (!Directory.Exists(folderPath))
@@ -29,8 +30,7 @@ namespace CLI
                 {
                     ShowMessages.EventMessage("Folder found!\n");
                 }
-            }
-            while (!Directory.Exists(folderPath));
+            } while (!Directory.Exists(folderPath));
 
             Console.CursorVisible = false;
 
@@ -43,14 +43,20 @@ namespace CLI
         /// <returns>Returns the pressed key.</returns>
         public static ConsoleKey WaitForArrowKeys()
         {
-            ConsoleKey k = Console.ReadKey(true).Key;
-
-            while (k != ConsoleKey.UpArrow && k != ConsoleKey.DownArrow && k != ConsoleKey.Enter)
+            if (!DRV3.Main.BatchCompile)
             {
-                k = Console.ReadKey(true).Key;
-            }
+                ConsoleKey k = Console.ReadKey(true).Key;
 
-            return k;
+                while (k != ConsoleKey.UpArrow && k != ConsoleKey.DownArrow && k != ConsoleKey.Enter)
+                {
+                    k = Console.ReadKey(true).Key;
+                }
+
+                return k;
+            } else
+            {
+                return ConsoleKey.Enter;
+            }
         }
     }
 }

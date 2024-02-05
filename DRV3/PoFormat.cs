@@ -8,7 +8,6 @@ namespace DRV3
 {
     internal class PoFormat : GenericTextFormat
     {
-
         public PoFormat(string PoAddress, string STX_Folder)
         {
             (sentences, num) = ExtractTextFromPo(PoAddress);

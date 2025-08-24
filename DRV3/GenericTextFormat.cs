@@ -1,129 +1,157 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace DRV3
 {
-    public class GenericTextFormat
-    {
-        protected List<uint> num; // Pointer number
-        protected string originalSTX = string.Empty;
+	public class GenericTextFormat
+	{
+		protected List<uint> num; // Pointer number
+		protected string originalSTX = string.Empty;
 
-        /// <summary>
-        /// Translated sentences.
-        /// </summary>
-        protected List<string> sentences;
+		/// <summary>
+		/// Translated sentences.
+		/// </summary>
+		protected List<string> sentences;
 
-        protected string STXFFIleName = string.Empty;
+		protected string STXFFIleName = string.Empty;
 
-        /// <summary>
-        /// Create the translated STX.
-        /// </summary>
-        /// <param name="RepackFolder">Folder where the new STX file are going to be placed.</param>
-        public void BuildSTX(string RepackFolder)
-        {
-            if (originalSTX != string.Empty && File.Exists(originalSTX))
-            {
-                byte[] header;
+		/// <summary>
+		/// Create the translated STX.
+		/// </summary>
+		/// <param name="RepackFolder">Folder where the new STX file are going to be placed.</param>
+		public void BuildSTX(string RepackFolder)
+		{
+			// Ensure we have an original STX file to base our repack on
+			if (originalSTX != string.Empty && File.Exists(originalSTX))
+			{
+				byte[] header;
 
-                /*
-                for(int i = 0; i < sentences.Count; i++)
-                {
-                    sentences[i] = sentences[i].ReplaceLineEndings();
-                }
-                */
+				// STEP 1: Read and store the header from the original STX
+				// --------------------------------------------------------
+				// We need to preserve the original header exactly, because it contains
+				// metadata, magic numbers, and offsets that the game expects.
+				using (FileStream oF = new FileStream(originalSTX, FileMode.Open, FileAccess.Read))
+				using (BinaryReader STXBBR = new BinaryReader(oF))
+				{
+					STXBBR.ReadUInt64(); // Skip MagicID + lang (8 bytes)
+					STXBBR.ReadUInt32(); // Skip unk1 (4 bytes)
+					uint headerSize = STXBBR.ReadUInt32(); // Read header size
 
-                // Read and save the header from the original STX file.
-                using (FileStream oF = new FileStream(originalSTX, FileMode.Open, FileAccess.Read))
-                using (BinaryReader STXBBR = new BinaryReader(oF))
-                {
-                    STXBBR.ReadUInt64();
-                    STXBBR.ReadUInt32();
-                    uint headerSize = STXBBR.ReadUInt32();
+					header = new byte[headerSize];
 
-                    header = new byte[headerSize];
+					oF.Seek(0, SeekOrigin.Begin); // Go back to start
+					oF.Read(header, 0, header.Length); // Read full header into memory
+				}
 
-                    oF.Seek(0, SeekOrigin.Begin);
+				// STEP 2: Create the new STX file for writing
+				// -------------------------------------------
+				using (FileStream NEWOutFile = new FileStream(Path.Combine(RepackFolder, STXFFIleName), FileMode.Create, FileAccess.Write))
+				using (BinaryWriter OutFileBW = new BinaryWriter(NEWOutFile))
+				using (BinaryWriter TextUnicode = new BinaryWriter(NEWOutFile, Encoding.Unicode))
+				{
+					// Write the preserved header first
+					OutFileBW.Write(header);
 
-                    oF.Read(header, 0, header.Length);
-                }
+					// Remember where the pointer table will be written
+					long pointZone = NEWOutFile.Position;
 
-                // Create the new STX file. 
-                using (FileStream NEWOutFile = new FileStream(Path.Combine(RepackFolder, STXFFIleName), FileMode.Create,
-                           FileAccess.Write))
-                using (BinaryWriter OutFileBW = new BinaryWriter(NEWOutFile),
-                       TextUnicode = new BinaryWriter(NEWOutFile, Encoding.Unicode))
-                {
-                    OutFileBW.Write(header);
+					// This will store the file offsets for each sentence
+					long[] sentencesOffset = new long[sentences.Count];
 
-                    long pointZone = NEWOutFile.Position;
-                    long[] sentencesOffeset = new long[sentences.Count];
+					// STEP 3: Reserve space for the pointer table
+					// -------------------------------------------
+					// Each entry in the pointer table is 8 bytes:
+					//   - 4 bytes: num[i] (ID)
+					//   - 4 bytes: offset to sentence
+					// We fill with zeroes now and overwrite later.
+					for (int i = 0; i < sentences.Count; i++)
+					{
+						OutFileBW.Write((long)0);
+					}
 
-                    // Fill the pointers zone with zeroes. I'll populate this at the end.
-                    for (int i = 0; i < sentences.Count; i++)
-                    {
-                        OutFileBW.Write((long)0);
-                    }
+					// STEP 4: Write all sentences to the file
+					// ---------------------------------------
+					for (int i = 0; i < sentences.Count; i++)
+					{
+						bool duplicate = false;
 
-                    for (int i = 0; i < sentences.Count; i++)
-                    {
-                        bool duplicate = false;
+						// Check for duplicate text to save space
+						for (int x = 0; x < i; x++)
+						{
+							if (sentences[i] == sentences[x])
+							{
+								duplicate = true;
+								sentencesOffset[i] = sentencesOffset[x];
+								break;
+							}
+						}
 
-                        int x = 0;
+						// If not a duplicate, write it to the file
+						if (!duplicate)
+						{
+							sentencesOffset[i] = NEWOutFile.Position;
 
-                        // Check if the sentences "i" is a duplicate. This way we can save some space and write the sentence just once instead of multiples times.
-                        while (x < i)
-                        {
-                            if (sentences[i] == sentences[x])
-                            {
-                                duplicate = true;
-                                sentencesOffeset[i] = sentencesOffeset[x];
-                                break;
-                            }
+							// Write the sentence as UTF-16 (Unicode)
+							TextUnicode.Write(sentences[i].ToCharArray());
 
-                            x++;
-                        }
+							// Null terminator for the string
+							OutFileBW.Write((ushort)0x00);
+						}
+					}
 
-                        if (duplicate == false)
-                        {
-                            sentencesOffeset[i] = NEWOutFile.Position;
+					// STEP 5: Ensure num[] covers all sentences
+					// -----------------------------------------
+					// If there are more sentences than original num entries,
+					// we generate new unique IDs that don't collide with existing ones.
+					if (num.Count < sentences.Count)
+					{
+						// Track all used numbers for fast lookup
+						HashSet<uint> usedNums = new HashSet<uint>(num);
 
-                            // Write the sentence n# [i] in the repacked file.
-                            TextUnicode.Write(sentences[i].ToCharArray());
+						// Start from the highest existing number + 1, or 0 if empty
+						uint candidate = num.Count > 0 ? num.Max() + 1 : 0;
 
-                            // Write down the null string terminator.
-                            OutFileBW.Write((ushort)0x00);
-                        }
-                    }
+						for (int extra = num.Count; extra < sentences.Count; extra++)
+						{
+							// Find the next unused number
+							while (usedNums.Contains(candidate))
+							{
+								candidate++;
+							}
 
-                    // Now populate the pointers zone.
-                    NEWOutFile.Seek(pointZone, SeekOrigin.Begin);
+							num.Add(candidate);
+							usedNums.Add(candidate);
+						}
+					}
 
-                    for (int i = 0; i < sentences.Count; i++)
-                    {
-                        if (num.Count == 0 || i >= num.Count)
-                        {
-                            // Workaround, this should never happen unless
-                            // you manually edit the files in the "EXTRACTED_FILES" folder
-                            // and accidently add a line or more
-                            OutFileBW.Write((uint)i);
-                            Console.WriteLine("Something is wrong about this file (wrong number of lines?): " +
-                                              STXFFIleName.Replace(".stx", ".txt"));
-                        }
-                        else
-                        {
-                            OutFileBW.Write(num[i]);
-                        }
+					// STEP 6: Write the pointer table
+					// --------------------------------
+					// Now that we have all offsets and num values, we overwrite
+					// the reserved pointer table space.
+					NEWOutFile.Seek(pointZone, SeekOrigin.Begin);
 
-                        OutFileBW.Write((uint)sentencesOffeset[i]);
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("Original STX file for " + STXFFIleName.Replace(".stx", ".txt") + " not found!");
-            }
-        }
-    }
+					// TODO: should this be < sentencesOffset.Length?
+					for (int i = 0; i < sentences.Count; i++)
+					{
+						OutFileBW.Write(num[i]); // Unique ID for this sentence
+						OutFileBW.Write((uint)sentencesOffset[i]); // Offset to sentence data
+					}
+
+					// Write sentence count at offset 0x14
+					NEWOutFile.Seek(0x14, SeekOrigin.Begin);
+					OutFileBW.Write((uint)sentencesOffset.LongLength);
+
+					// TODO: delete everything after (farthest string found from pointers + the string length)
+				}
+			}
+			else
+			{
+				// If the original STX file is missing, we can't proceed
+				Console.WriteLine("Original STX file for " + STXFFIleName.Replace(".stx", ".txt") + " not found!");
+			}
+		}
+	}
 }

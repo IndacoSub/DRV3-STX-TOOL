@@ -10,8 +10,9 @@ namespace DRV3
 		public static bool UseTxtInsteadOfPo = false;
 		public static bool SwapENGAndJAP = false;
 		public static bool ViewWRD = false;
-		public static bool BatchCompile = false;
+		public static bool BatchCompile = true;
 		public static bool WarnAboutMissingJapFile = true;
+		public static bool UseEmptyLine = false;
 
 		// Functions
 		public static void ExtractTextFromSTXfiles(string STXFolder, string WRDFolder)
@@ -25,7 +26,7 @@ namespace DRV3
 				if (MagicID.Check(STXfile, MagicID.STX))
 				{
 					STX STXobject = new STX(STXfile, WRDFolder);
-					if(STXobject == null)
+					if (STXobject == null)
 					{
 						continue;
 					}

@@ -26,7 +26,7 @@ namespace DRV3
 
 		private void PrintDebug(string str)
 		{
-			if(DRV3.Main.ViewWRD)
+			if (DRV3.Main.ViewWRD)
 			{
 				Console.WriteLine(str);
 			}
